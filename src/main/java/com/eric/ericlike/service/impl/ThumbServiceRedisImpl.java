@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.eric.ericlike.constant.RedisLuaScriptConstant;
 import com.eric.ericlike.mapper.ThumbMapper;
 import com.eric.ericlike.model.dto.thumb.DoThumbRequest;
+import com.eric.ericlike.model.dto.thumb.ThumbRedisInfo;
 import com.eric.ericlike.model.entity.Thumb;
 import com.eric.ericlike.model.entity.User;
 import com.eric.ericlike.model.enums.LuaStatusEnum;
@@ -18,6 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -47,13 +50,17 @@ public class ThumbServiceRedisImpl extends ServiceImpl<ThumbMapper, Thumb> imple
         String userThumbKey = RedisKeyUtil.getUserThumbKey(loginUser.getId());  
   
         // 执行 Lua 脚本  
-        long result = redisTemplate.execute(  
+        long epochMilli = Instant.now().plus(30, ChronoUnit.DAYS).toEpochMilli();
+        log.info("epochMilli:{}", epochMilli);
+        long result = redisTemplate.execute(
                 RedisLuaScriptConstant.THUMB_SCRIPT,
                 Arrays.asList(tempThumbKey, userThumbKey),
                 loginUser.getId(),  
-                blogId  
-        );  
-  
+                blogId,
+                //todo 暂时传一个大于当前时间30天后的时间戳，待思考是否需要替换成博客的创建时间的30天的时间戳
+                epochMilli
+        );
+
         if (LuaStatusEnum.FAIL.getValue() == result) {
             throw new RuntimeException("用户已点赞");  
         }  
@@ -102,7 +109,27 @@ public class ThumbServiceRedisImpl extends ServiceImpl<ThumbMapper, Thumb> imple
     }  
   
     @Override  
-    public Boolean hasThumb(Long blogId, Long userId) {  
-        return redisTemplate.opsForHash().hasKey(RedisKeyUtil.getUserThumbKey(userId), blogId.toString());  
-    }  
+    public Boolean hasThumb(Long blogId, Long userId) {
+        String userThumbKey = RedisKeyUtil.getUserThumbKey(userId);
+        //redis版本不支持，所以使用了下面的方式，再RedisLuaScriptConstant.THUMB_SCRIPT的lua脚本里面有说明
+        //ThumbRedisInfo thumbRedisInfo = (ThumbRedisInfo)redisTemplate.opsForHash().get(userThumbKey, blogId.toString());
+        Long expireTime = (Long) redisTemplate.opsForHash().get(userThumbKey, blogId.toString());
+        //如果对象为空，则查询数据库数据
+        if(Objects.isNull(expireTime)){
+            return this.lambdaQuery()
+                    .eq(Thumb::getUserId, userId)
+                    .eq(Thumb::getBlogId, blogId)
+                    .exists();
+        }
+        //如果不为空，则判断redis key是否过期，过期则用jdk21的异步线程删除redis key
+        if(expireTime < System.currentTimeMillis()){
+            Thread.startVirtualThread(() -> {
+                redisTemplate.opsForHash().delete(userThumbKey, blogId.toString());
+            });
+            return false;
+        }
+        //到这里表示redis key存在且key没有过期，则直接返回true
+        return true;
+    }
+
 }
