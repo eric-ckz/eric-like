@@ -12,13 +12,17 @@ import com.eric.ericlike.service.ThumbService;
 import com.eric.ericlike.service.UserService;
 import com.eric.ericlike.util.RedisKeyUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Objects;
 
-@Service
+@Service("thumbServiceDB")
+@Slf4j
+@RequiredArgsConstructor
 public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb> implements ThumbService {
 
     private final UserService userService;
@@ -28,13 +32,6 @@ public class ThumbServiceImpl extends ServiceImpl<ThumbMapper, Thumb> implements
     private final TransactionTemplate transactionTemplate;
 
     private final RedisTemplate<String, Object> redisTemplate;
-
-    public ThumbServiceImpl(UserService userService, BlogService blogService, TransactionTemplate transactionTemplate, RedisTemplate<String, Object> redisTemplate) {
-        this.userService = userService;
-        this.blogService = blogService;
-        this.transactionTemplate = transactionTemplate;
-        this.redisTemplate = redisTemplate;
-    }
 
     @Override
     public Boolean doThumb(DoThumbRequest doThumbRequest, HttpServletRequest request) {
