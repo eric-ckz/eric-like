@@ -15,6 +15,7 @@ import com.eric.ericlike.util.RedisKeyUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +41,7 @@ public class SyncThumb2DBJob {
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
 
+    @Async("taskExecutor")  // 标记为异步方法同时指定自定义线程池
     @Scheduled(initialDelay = 10000, fixedDelay = 10000)
     @Transactional(rollbackFor = Exception.class)
     public void run() {
