@@ -8,8 +8,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @MapperScan("com.eric.like.mapper")
-@EnableScheduling
-@EnableAsync  // 启用异步支持
+//@EnableScheduling
+//@EnableAsync  // 启用异步支持
 public class LikeApplication {
 
     public static void main(String[] args) {

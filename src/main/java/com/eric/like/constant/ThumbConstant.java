@@ -15,4 +15,6 @@ public interface ThumbConstant {
     String TEMP_THUMB_KEY_PREFIX = "thumb:temp:%s";
 
     Long UN_THUMB_CONSTANT = 0L;
+
+    String THUMB_TOPIC = "thumb-topic";
 }

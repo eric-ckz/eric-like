@@ -21,6 +21,11 @@ spring:
       timeout: 5000
       port: 6379
 
+  pulsar:
+#    admin:
+    #      service-url: http://192.168.31.217:6650
+    client:
+      service-url: pulsar://192.168.31.217:6650
 
 mybatis-plus:
   configuration:

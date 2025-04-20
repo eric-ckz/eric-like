@@ -14,16 +14,17 @@ import org.springframework.data.redis.core.script.RedisScript;
      * KEYS[2]       -- 用户点赞状态键
      * ARGV[1]       -- 用户 ID
      * ARGV[2]       -- 博客 ID
+     * ARGV[3]       -- 过期时间
      * 返回:
      * -1: 已点赞
      * 1: 操作成功
      */
     RedisScript<Long> THUMB_SCRIPT = new DefaultRedisScript<>("""  
-            local tempThumbKey = KEYS[1]       -- 临时计数键（如 thumb:temp:{timeSlice}）  
+            local tempThumbKey = KEYS[1]       -- 临时计数键（如 thumb:temp:{timeSlice}）
             local userThumbKey = KEYS[2]       -- 用户点赞状态键（如 thumb:{userId}）  
             local userId = ARGV[1]             -- 用户 ID  
             local blogId = ARGV[2]             -- 博客 ID  
-            local expireTime = ARGV[3]             -- 过期时间  
+            local expireTime = ARGV[3]         -- 过期时间  
               
             -- 1. 检查是否已点赞（避免重复操作）  
             if redis.call('HEXISTS', userThumbKey, blogId) == 1 then
@@ -59,8 +60,8 @@ import org.springframework.data.redis.core.script.RedisScript;
      * 1: 操作成功
      */
     RedisScript<Long> UNTHUMB_SCRIPT = new DefaultRedisScript<>("""  
-            local tempThumbKey = KEYS[1]      -- 临时计数键（如 thumb:temp:{timeSlice}）  
-            local userThumbKey = KEYS[2]      -- 用户点赞状态键（如 thumb:{userId}）  
+            local tempThumbKey = KEYS[1]      -- 临时计数键（如 thumb:temp:{timeSlice}）
+            local userThumbKey = KEYS[2]      -- 用户点赞状态键（如 thumb:{userId}）
             local userId = ARGV[1]            -- 用户 ID  
             local blogId = ARGV[2]            -- 博客 ID  
               
@@ -82,5 +83,61 @@ import org.springframework.data.redis.core.script.RedisScript;
               
             return 1  -- 返回 1 表示成功  
             """, Long.class);
+
+
+    /**
+     * 点赞 Lua 脚本
+     * KEYS[1]       -- 用户点赞状态键
+     * ARGV[1]       -- 博客 ID
+     * ARGV[2]       -- 过期时间
+     * 返回:
+     * -1: 已点赞
+     * 1: 操作成功
+     */
+    public static final RedisScript<Long> THUMB_SCRIPT_MQ = new DefaultRedisScript<>("""  
+                local userThumbKey = KEYS[1]
+                local blogId = ARGV[1]
+                local expireTime = ARGV[2]         -- 过期时间  
+          
+                -- 判断是否已经点赞  
+                if redis.call("HEXISTS", userThumbKey, blogId) == 1 then  
+                    return -1  
+                end  
+          
+                -- 解释一下为什么存过期时间： 到了这一步证明已经代表要新增一个redis key表示已经点赞，内容一定是1，既然这样的话不如存一个过期时间，用的时候直接判断过期时间即可，一定是正常状态的
+                -- redis.call('HSET', userThumbKey, blogId, 1)
+                -- 再解释一下，做这个项目的时候使用的redis版本是5.0.14.1，不支持lua脚本的HMSET命令，所以没有用下面的HMSET命令
+                -- redis.call('HMSET', userThumbKey, blogId,\s
+                --     'luaStatus', 1,
+                --     'expireTime', expireTime
+                -- )
+               
+                -- 添加点赞记录  
+                redis.call("HSET", userThumbKey, blogId, expireTime)  
+                return 1  
+        """, Long.class);
+
+    /**
+     * 取消点赞 Lua 脚本
+     * KEYS[1]       -- 用户点赞状态键
+     * ARGV[1]       -- 博客 ID
+     * 返回:
+     * -1: 已点赞
+     * 1: 操作成功
+     */
+    public static final RedisScript<Long> UNTHUMB_SCRIPT_MQ = new DefaultRedisScript<>("""  
+                local userThumbKey = KEYS[1]
+                local blogId = ARGV[1]
+                
+                -- 判断是否已点赞  
+                if redis.call("HEXISTS", userThumbKey, blogId) == 0 then  
+                    return -1  
+                end  
+                  
+                -- 删除点赞记录  
+                redis.call("HDEL", userThumbKey, blogId)  
+                return 1  
+        """, Long.class);
+
 
 }
