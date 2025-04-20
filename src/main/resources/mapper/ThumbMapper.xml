@@ -2,9 +2,9 @@
 <!DOCTYPE mapper
         PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.eric.ericlike.mapper.ThumbMapper">
+<mapper namespace="com.eric.like.mapper.ThumbMapper">
 
-    <resultMap id="BaseResultMap" type="com.eric.ericlike.model.entity.Thumb">
+    <resultMap id="BaseResultMap" type="com.eric.like.model.entity.Thumb">
             <id property="id" column="id" jdbcType="BIGINT"/>
             <result property="userId" column="userId" jdbcType="BIGINT"/>
             <result property="blogId" column="blogId" jdbcType="BIGINT"/>
